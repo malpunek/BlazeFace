@@ -140,7 +140,7 @@ class BlazePred(nn.Module):
         scores = self.predictions(x)  # (N, out * anchors, H, W)
         scores = scores.permute(0, 2, 3, 1)  # (N, H, W, out * anchors)
         scores = scores.reshape(
-            batch_dim, -1, self.anchors_per_cell, 5 + self.num_classes
+            *scores.shape[:3], self.anchors_per_cell, 5 + self.num_classes
         )  # (N, H, W, anchors, out)
         return scores
 
@@ -149,8 +149,8 @@ def to_concrete_scores(scores, anchors):
     """(N, H, W, anchors, out) => (N, H, W, anchors, out)"""
     cell_w, cell_h = 1 / scores.size(2), 1 / scores.size(1)
     scores[..., 1:3] = torch.tanh(scores[..., 1:3])
-    scores[..., 1] += scores[..., 1] * (cell_w / 2) + anchors[..., 0]
-    scores[..., 2] += scores[..., 2] * (cell_h / 2) + anchors[..., 1]
+    scores[..., 1] = scores[..., 1] * (cell_w / 2) + anchors[..., 0]
+    scores[..., 2] = scores[..., 2] * (cell_h / 2) + anchors[..., 1]
     scores[..., 3:5] = torch.exp(scores[..., 3:5])
     scores[..., 3:5] *= anchors[..., 2:4]
     return scores
