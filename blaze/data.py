@@ -1,10 +1,11 @@
 import random as pyrand
 
 import cv2
-import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
+
+from .polygons import blend
 
 
 class Frames(Dataset):
@@ -27,6 +28,23 @@ class Frames(Dataset):
 
     def random(self):
         return self[pyrand.randint(0, len(self))]
+
+
+class PaintedFramesDataLoader:
+    def __init__(self, dataset, batch_size, num_batches, imgs_read=8):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.num_batches = num_batches
+        self.imgs_read = imgs_read
+
+    def __getitem__(self, i):
+        if i >= self.num_batches:
+            raise IndexError
+        frames = [self.dataset.random() for i in range(self.imgs_read)]
+        idxs = torch.randint(self.imgs_read, (self.batch_size, 2))
+        blends = list(zip(*[blend(frames[i], frames[j]) for i, j in idxs]))
+        tensorFrames = list(map(torch.Tensor, blends[0]))
+        return torch.stack(tensorFrames), blends[1]
 
 
 def to_normal_coords(targets, imgshape):
