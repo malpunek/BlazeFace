@@ -1,4 +1,3 @@
-import math
 from functools import cache
 
 import torch
@@ -31,7 +30,6 @@ class BlazeConv(nn.Module):
 
     def forward(self, x):
         res = self.main(x)
-        print(x.shape, res.shape)
         return res
 
 
@@ -136,7 +134,6 @@ class BlazePred(nn.Module):
         """
         (N, in_channels, H, W) => (N, H, W, anchors, out)
         where out = [hasObject, x, y, w, h, class1_prob, class2_prob...]"""
-        batch_dim = x.shape[0]
         scores = self.predictions(x)  # (N, out * anchors, H, W)
         scores = scores.permute(0, 2, 3, 1)  # (N, H, W, out * anchors)
         scores = scores.reshape(
@@ -153,7 +150,9 @@ def to_concrete_scores(scores, anchors):
     scores[..., 2] = scores[..., 2] * (cell_h / 2) + anchors[..., 1]
     scores[..., 3:5] = torch.exp(scores[..., 3:5])
     scores[..., 3:5] *= anchors[..., 2:4]
-    return scores
+    result = scores.clone()
+    result[..., 5:] = F.softmax(scores[..., 5:], dim=-1)
+    return result
 
 
 def anchor_centers(shape: tuple[int, int]):
@@ -180,8 +179,8 @@ def anchor_boxes(shape: tuple[int, int]):
     h, w = shape
     with torch.no_grad():
         # TODO Config for sizes
-        size_x = torch.Tensor([0.5, 1, 2, 3]) / w
-        size_y = torch.Tensor([0.5, 1, 2, 3]) / h
+        size_x = torch.Tensor([0.2, 0.5, 1, 2.3]) / w
+        size_y = torch.Tensor([0.2, 0.5, 1, 2.3]) / h
 
         centers = anchor_centers(shape)
         sizes = torch.stack([size_x, size_y]).T
@@ -199,16 +198,16 @@ class BlazeNet(nn.Module):
 
         self.features = BlazeFeats()
 
-        self.predictions_16 = BlazePred(96, 3, num_anchors_16)
+        # self.predictions_16 = BlazePred(96, 3, num_anchors_16)
         self.predictions_8 = BlazePred(96, 3, num_anchors_8)
 
     def forward(self, x):
         f16, f8 = self.features(x)
-        pred16 = self.predictions_16(f16)
+        # pred16 = self.predictions_16(f16)
         pred8 = self.predictions_8(f8)
-        anchors_8, anchors_16 = anchor_boxes(tuple(pred8.shape[1:3])), anchor_boxes(
-            tuple(pred16.shape[1:3])
-        )
-        return to_concrete_scores(pred8, anchors_8), to_concrete_scores(
-            pred16, anchors_16
-        )
+        device = next(self.parameters()).device
+        anchors_8 = anchor_boxes(tuple(pred8.shape[1:3])).to(device)
+        # anchors_16 = anchor_boxes(tuple(pred16.shape[1:3]))
+        return to_concrete_scores(
+            pred8, anchors_8
+        )  # , to_concrete_scores(pred16, anchors_16)

@@ -6,12 +6,8 @@ https://stats.stackexchange.com/questions/287486/yolo-loss-function-explanation/
 both outputs and targets are (N, H, W, anchors_per_cell, [objectness, cx, cy, w, h, class1, class2, ...])
 """
 
-import torch
-
-from .model import anchor_centers
-from .utils import unravel_indices
-
 # TODO check these work as they should
+
 
 def objectness_loss(outputs, targets, noObjectCoeff):
     loss = outputs[..., 0] - targets[..., 0]
@@ -28,8 +24,8 @@ def classification_loss(outputs, targets):
 
 def localization_loss(outputs, targets):
     o, t = outputs[targets[..., 0] == 1], targets[targets[..., 0] == 1]
-    loss_centers = (o[1:3] - t[1:3] ** 2).sum()
-    loss_sizes = ((o[3:5].sqrt() - t[3:5].sqrt()) ** 2).sum()
+    loss_centers = ((o[1:3] - t[1:3]) ** 2).sum()
+    loss_sizes = ((o[3:5].abs().sqrt() - t[3:5].abs().sqrt()) ** 2).sum()
     return loss_centers + loss_sizes
 
 

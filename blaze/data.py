@@ -3,6 +3,7 @@ import random as pyrand
 import cv2
 import torch
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
 from .polygons import blend
@@ -43,7 +44,10 @@ class PaintedFramesDataLoader:
         frames = [self.dataset.random() for i in range(self.imgs_read)]
         idxs = torch.randint(self.imgs_read, (self.batch_size, 2))
         blends = list(zip(*[blend(frames[i], frames[j]) for i, j in idxs]))
-        tensorFrames = list(map(torch.Tensor, blends[0]))
+        trans = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
+        )
+        tensorFrames = [trans(img) for img in blends[0]]
         return torch.stack(tensorFrames), blends[1]
 
 

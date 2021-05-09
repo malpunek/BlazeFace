@@ -35,17 +35,17 @@ def targets_to_batch(targets, outputs, anchors):
         targets: list(torch.Tensor(objs, [x, y, w, h, class1, class2, ...])), len(list) == N
         anchors: torch.Tensor(H, W, anchors_per_cell, 4)
     """
-    new_targets = torch.zeros_like(outputs)
+    new_targets = torch.zeros_like(outputs).cpu()
     for sample_i, target in enumerate(
         targets
     ):  # target == torch.Tensor(objs, [cx, cy, w, h, class1, class2, ...]
-        anchors_boxes = box_convert(anchors, "cxcywh", "xyxy")
+        anchors_boxes = box_convert(anchors, "cxcywh", "xyxy").reshape(-1, 4)
         object_boxes = box_convert(target[:, :4], "cxcywh", "xyxy")
         ious = box_iou(object_boxes, anchors_boxes)
         best_boxes = unravel_indices(
-            torch.argmax(box_iou, dim=-1), anchors.shape[:3]
-        )  #  torch.Tensor(objs, [cell_y, cell_x, anchor#])
-        final_objects_i = torch.cat((torch.ones(target.size(0)), target), dim=-1)
+            torch.argmax(ious, dim=-1), anchors.shape[:3]
+        )  # torch.Tensor(objs, [cell_y, cell_x,ta anchor#])
+        final_objects_i = torch.cat((torch.ones(target.size(0), 1), target), dim=-1)
         new_targets[
             sample_i, best_boxes[:, 0], best_boxes[:, 1], best_boxes[:, 2], :
         ] = final_objects_i

@@ -170,4 +170,4 @@ def blend(fg, bg, maxFigs=3):
     targets[:, :4] = box_convert(torch.Tensor(bboxes), "xyxy", "cxcywh")
     targets[:, 4:] = F.one_hot(torch.LongTensor(ftypes), num_classes=3)
 
-    return np.asarray(bg), targets
+    return bg, targets
