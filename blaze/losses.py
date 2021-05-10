@@ -33,7 +33,7 @@ def classification_loss(outputs, targets):
 
 def center_loss(outputs, targets):
     o, t = outputs[targets[..., 0] == 1], targets[targets[..., 0] == 1]
-    loss_centers = F.mse_loss(o[:, 1:3], t[:, 1:3], reduction="sum")
+    loss_centers = F.mse_loss(o[:, 1:3], t[:, 1:3])
     return loss_centers
 
 
@@ -43,9 +43,17 @@ def sizes_loss(outputs, targets):
     return loss_sizes
 
 
-def full_loss(outputs, targets, noObjectCoeff=0.5, coordCoeff=5):
-    obj = objectness_loss(outputs, targets, noObjectCoeff)
-    cls = classification_loss(outputs, targets)
-    center = coordCoeff * center_loss(outputs, targets)
-    sizes = coordCoeff * sizes_loss(outputs, targets)
+def full_loss(
+    outputs,
+    targets,
+    noObjectCoeff=.5,
+    centerCoeff=75,
+    sizesCoeff=10,
+    classificationCoeff=.2,
+    allCoeff=5
+):
+    obj = allCoeff * objectness_loss(outputs, targets, noObjectCoeff)
+    cls = allCoeff * classificationCoeff * classification_loss(outputs, targets)
+    center = allCoeff * centerCoeff * center_loss(outputs, targets)
+    sizes = allCoeff * sizesCoeff * sizes_loss(outputs, targets)
     return (obj + cls + center + sizes), (obj, cls, center, sizes)

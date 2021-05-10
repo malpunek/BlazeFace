@@ -24,7 +24,11 @@ os.makedirs(runs_dir, exist_ok=True)
 run_num = len(list(runs_dir.iterdir()))
 run_dir = runs_dir / f"{run_num:03d}"
 
-os.makedirs(run_dir, exist_ok=True)
+while run_dir.exists():
+    run_num += 1
+    run_dir = runs_dir / f"{run_num:03d}"
+
+os.makedirs(run_dir)
 writer = SummaryWriter(run_dir)
 
 # %%
@@ -57,7 +61,7 @@ def get_eval_sample():
     return torch.stack(eframes)
 
 
-def plot_eval_sample(writer, model, sample, global_step):
+def plot_eval_sample(writer, model, sample, global_step, topk=None):
     device = next(model.parameters()).device
     sample = sample.to(device)
     outputs = model(sample).cpu()
@@ -73,7 +77,12 @@ def plot_eval_sample(writer, model, sample, global_step):
 
     def get_boxes(i):
         my_boxes = boxes[i]
-        my_boxes = my_boxes[my_boxes[..., 0] > 0.5]
+        if topk is None:
+            my_boxes = my_boxes[my_boxes[..., 0] > 0.5]
+        else:
+            _, idxs = torch.topk(my_boxes[..., 0].reshape(-1), topk)
+            my_boxes = my_boxes.reshape(-1, 5)[idxs]
+
         return tv.ops.box_convert(my_boxes[..., 1:], "cxcywh", "xyxy")
 
     outs = torch.stack(
@@ -81,18 +90,16 @@ def plot_eval_sample(writer, model, sample, global_step):
     )
 
     grid = tv.utils.make_grid(outs)
-    writer.add_image(
-        "Eval Input", tv.utils.make_grid(torch.stack(imgs)), global_step=global_step
-    )
-    writer.add_image("Eval Grid", grid, global_step=global_step)
+    name = "Eval Grid" if topk is None else f"Eval topk {topk}"
+    writer.add_image(name, grid, global_step=global_step)
 
 
 eval_sample = get_eval_sample()
 
 # %%
-epoch_size = 30
+epoch_size = 3
 batch_size = 32
-num_epochs = 30
+num_epochs = 2
 
 loader = PaintedFramesDataLoader(frames, batch_size, epoch_size)
 
@@ -138,6 +145,7 @@ for epoch in range(num_epochs):
         running_loss += loss.item() / batch_size
     writer.add_scalar("Epoch loss", loss, global_step=(epoch + 1) * epoch_size)
     plot_eval_sample(writer, model, eval_sample, (epoch + 1) * epoch_size)
+    plot_eval_sample(writer, model, eval_sample, (epoch + 1) * epoch_size, topk=15)
 
     torch.save(model.state_dict(), run_dir / f"state_dict_e{epoch:03d}.pth")
 

@@ -148,8 +148,9 @@ def to_concrete_scores(scores, anchors):
     scores[..., 1:3] = torch.tanh(scores[..., 1:3])
     scores[..., 1] = scores[..., 1] * (cell_w / 2) + anchors[..., 0]
     scores[..., 2] = scores[..., 2] * (cell_h / 2) + anchors[..., 1]
-    scores[..., 3:5] = torch.exp(scores[..., 3:5])
+    scores[..., 3:5] = torch.sigmoid(scores[..., 3:5] / 5) * 5
     scores[..., 3:5] *= anchors[..., 2:4]
+    scores[..., 0] = torch.sigmoid(scores[..., 0])
     return scores
 
 
