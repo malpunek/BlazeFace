@@ -15,8 +15,8 @@ def random_locate(pts: np.array, size=(1280, 720)):
     pts = pts - [xt, yt]
     pts[pts[:, 0] >= size[0]] = size[0] - 1
     pts[pts[:, 1] >= size[1]] = size[1] - 1
-    xt, yt = random.integers(0, size[0] - np.max(pts[:, 0])), random.integers(
-        0, size[1] - np.max(pts[:, 1])
+    xt, yt = random.integers(0, max(1, size[0] - np.max(pts[:, 0]))), random.integers(
+        0, max(1, size[1] - np.max(pts[:, 1]))
     )
     return (pts + [xt, yt]).astype(int).flatten().tolist()
 

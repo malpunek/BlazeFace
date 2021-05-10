@@ -150,9 +150,7 @@ def to_concrete_scores(scores, anchors):
     scores[..., 2] = scores[..., 2] * (cell_h / 2) + anchors[..., 1]
     scores[..., 3:5] = torch.exp(scores[..., 3:5])
     scores[..., 3:5] *= anchors[..., 2:4]
-    result = scores.clone()
-    result[..., 5:] = F.softmax(scores[..., 5:], dim=-1)
-    return result
+    return scores
 
 
 def anchor_centers(shape: tuple[int, int]):
