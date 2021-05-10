@@ -97,9 +97,9 @@ def plot_eval_sample(writer, model, sample, global_step, topk=None):
 eval_sample = get_eval_sample()
 
 # %%
-epoch_size = 3
+epoch_size = 32
 batch_size = 32
-num_epochs = 2
+num_epochs = 300
 
 loader = PaintedFramesDataLoader(frames, batch_size, epoch_size)
 
@@ -119,9 +119,11 @@ optimizer = optim.Adam(model.parameters())
 device = torch.device("cuda")
 model.to(device)
 
-for epoch in range(num_epochs):
+for epoch in tqdm(range(num_epochs), desc="Epochs", total=num_epochs):
     running_loss = 0.0
-    for local_step, (inputs, targets) in enumerate(tqdm(loader, total=epoch_size)):
+    for local_step, (inputs, targets) in enumerate(
+        tqdm(loader, total=epoch_size, desc="Iteration", leave=False)
+    ):
         optimizer.zero_grad()
         inputs = inputs.to(device)
         outputs = model(inputs)
@@ -147,7 +149,8 @@ for epoch in range(num_epochs):
     plot_eval_sample(writer, model, eval_sample, (epoch + 1) * epoch_size)
     plot_eval_sample(writer, model, eval_sample, (epoch + 1) * epoch_size, topk=15)
 
-    torch.save(model.state_dict(), run_dir / f"state_dict_e{epoch:03d}.pth")
+    if (epoch + 1) % 3 == 0:
+        torch.save(model.state_dict(), run_dir / f"state_dict_e{epoch:03d}.pth")
 
 
 # %%
