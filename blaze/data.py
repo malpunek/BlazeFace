@@ -48,7 +48,9 @@ class PaintedFramesDataLoader:
             [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
         )
         tensorFrames = [trans(img) for img in blends[0]]
-        return torch.stack(tensorFrames), [normalize_bboxes(bs, tensorFrames[0].shape[1:]) for bs in blends[1]]
+        return torch.stack(tensorFrames), [
+            normalize_bboxes(bs, tensorFrames[0].shape[1:]) for bs in blends[1]
+        ]
 
 
 def to_normal_coords(targets, imgshape):

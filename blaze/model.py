@@ -1,4 +1,4 @@
-from functools import cache
+from typing import Dict, Tuple
 
 import torch
 import torch.nn as nn
@@ -137,11 +137,16 @@ class BlazePred(nn.Module):
         scores = self.predictions(x)  # (N, out * anchors, H, W)
         scores = scores.permute(0, 2, 3, 1)  # (N, H, W, out * anchors)
         scores = scores.reshape(
-            *scores.shape[:3], self.anchors_per_cell, 5 + self.num_classes
+            scores.shape[0],
+            scores.shape[1],
+            scores.shape[2],
+            self.anchors_per_cell,
+            5 + self.num_classes,
         )  # (N, H, W, anchors, out)
         return scores
 
 
+@torch.jit.script
 def to_concrete_scores(scores, anchors):
     """(N, H, W, anchors, out) => (N, H, W, anchors, out)"""
     cell_w, cell_h = 1 / scores.size(2), 1 / scores.size(1)
@@ -154,21 +159,22 @@ def to_concrete_scores(scores, anchors):
     return scores
 
 
-def anchor_centers(shape: tuple[int, int]):
+@torch.jit.script
+def anchor_centers(shape: Tuple[int, int]):
     h, w = shape
     with torch.no_grad():
         xs = (torch.arange(w) * 2 + 1) / (2 * w)
         ys = (torch.arange(h) * 2 + 1) / (2 * h)
 
         centers = torch.cartesian_prod(ys, xs)
-        centers = torch.index_select(centers, 1, torch.LongTensor([1, 0]))
+        centers = torch.index_select(centers, 1, torch.tensor([1, 0], dtype=torch.long))
         centers = centers.reshape(h, w, 2)
 
     return centers
 
 
-@cache
-def anchor_boxes(shape: tuple[int, int]):
+@torch.jit.script
+def anchor_boxes(shape: Tuple[int, int]):
     """
     Args:
         shape: (H, W)
@@ -178,8 +184,8 @@ def anchor_boxes(shape: tuple[int, int]):
     h, w = shape
     with torch.no_grad():
         # TODO Config for sizes
-        size_x = torch.Tensor([0.2, 0.5, 1, 2.3]) / w
-        size_y = torch.Tensor([0.2, 0.5, 1, 2.3]) / h
+        size_x = torch.tensor([0.2, 0.5, 1.0, 2.3]) / w
+        size_y = torch.tensor([0.2, 0.5, 1.0, 2.3]) / h
 
         centers = anchor_centers(shape)
         sizes = torch.stack([size_x, size_y]).T
@@ -192,6 +198,9 @@ def anchor_boxes(shape: tuple[int, int]):
 
 
 class BlazeNet(nn.Module):
+
+    boxes: Dict[str, torch.Tensor]
+
     def __init__(self, num_anchors_8, num_anchors_16):
         super().__init__()
 
@@ -199,13 +208,16 @@ class BlazeNet(nn.Module):
 
         # self.predictions_16 = BlazePred(96, 3, num_anchors_16)
         self.predictions_8 = BlazePred(96, 3, num_anchors_8)
+        self.boxes: Dict[str, torch.Tensor] = {}
 
     def forward(self, x):
         f16, f8 = self.features(x)
         # pred16 = self.predictions_16(f16)
         pred8 = self.predictions_8(f8)
-        device = next(self.parameters()).device
-        anchors_8 = anchor_boxes(tuple(pred8.shape[1:3])).to(device)
+        key = f"{pred8.shape[1]}_{pred8.shape[2]}"
+        if key not in self.boxes:
+            self.boxes[key] = anchor_boxes((pred8.shape[1], pred8.shape[2]))
+        anchors_8 = self.boxes[key].clone().to(x.device)
         # anchors_16 = anchor_boxes(tuple(pred16.shape[1:3]))
         return to_concrete_scores(
             pred8, anchors_8
