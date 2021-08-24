@@ -3,17 +3,13 @@ Based on:
 https://jonathan-hui.medium.com/real-time-object-detection-with-yolo-yolov2-28b1b93e2088
 https://stats.stackexchange.com/questions/287486/yolo-loss-function-explanation/
 
-both outputs and targets are (N, H, W, anchors_per_cell, [objectness, cx, cy, w, h, class1, class2, ...])
+both outputs and targets are (N, H, W, anchors_per_cell, [objectness, cx, cy, w, h,
+class1, class2, ...])
 """
 import torch.nn.functional as F
 
-# TODO check these work as they should
-
 
 def objectness_loss(outputs, targets, noObjectCoeff):
-    # loss = outputs[..., 0] - targets[..., 0]
-    # obj = (loss[targets[..., 0] == 1] ** 2).sum()
-    # noObj = (loss[targets[..., 0] == 0] ** 2).sum()
 
     o1, t1 = outputs[targets[..., 0] == 1], targets[targets[..., 0] == 1]
     obj = F.mse_loss(o1[..., 0], t1[..., 0])
