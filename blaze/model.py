@@ -11,7 +11,6 @@ class BlazeConv(nn.Module):
 
         self.channels, self.stride = channels, stride
 
-        # self.padding = (kernel_size - 1) // 2 if stride == 1 else math.ceil(kernel_size / 2) - 1
         self.padding = (kernel_size - 1) // 2
 
         self.main = nn.Sequential(
@@ -179,7 +178,8 @@ def anchor_boxes(shape: Tuple[int, int]):
     Args:
         shape: (H, W)
     Returns:
-        torch.Tensor(H, W, anchors, 4) where last dimension is (center_x, center_y, w, h)
+        torch.Tensor(H, W, anchors, 4) where last dimension is
+        (center_x, center_y, w, h)
     """
     h, w = shape
     with torch.no_grad():
